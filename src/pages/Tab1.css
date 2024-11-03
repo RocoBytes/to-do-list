@@ -1,0 +1,17 @@
+ion-button[type="submit"] {
+  margin: 20px;
+}
+
+ion-list {
+  margin-top: 20px;
+}
+
+form {
+  padding: 10px;
+}
+
+ion-item p {
+  white-space: pre-wrap;
+  margin-top: 8px;
+  color: var(--ion-color-medium);
+}
