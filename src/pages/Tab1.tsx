@@ -31,19 +31,32 @@ const Tab1: React.FC = () => {
   });
   const [modoEdicion, setModoEdicion] = useState(false);
 
+  const handleDescripcionChange = (value: string | null | undefined) => {
+    setNuevaTarea(prev => ({
+      ...prev,
+      descripcion: value || ''
+    }));
+  };
+
   const guardarTarea = () => {
     if (nuevaTarea.titulo.trim() === '') return;
+    
+    if (nuevaTarea.titulo.trim() === '' && nuevaTarea.descripcion.trim() === '') {
+      return;
+    }
+
+    const tareaNueva = {
+      ...nuevaTarea,
+      id: Date.now()
+    };
 
     if (modoEdicion) {
       setTareas(tareas.map(tarea => 
-        tarea.id === nuevaTarea.id ? nuevaTarea : tarea
+        tarea.id === nuevaTarea.id ? tareaNueva : tarea
       ));
       setModoEdicion(false);
     } else {
-      setTareas([...tareas, {
-        ...nuevaTarea,
-        id: Date.now()
-      }]);
+      setTareas(prev => [...prev, tareaNueva]);
     }
 
     setNuevaTarea({
@@ -78,25 +91,26 @@ const Tab1: React.FC = () => {
             <IonLabel position="stacked">Título</IonLabel>
             <IonInput
               value={nuevaTarea.titulo}
-              onIonChange={e => setNuevaTarea({
+              onIonInput={e => setNuevaTarea({
                 ...nuevaTarea,
-                titulo: e.detail.value || ''
+                titulo: String((e.target as HTMLIonInputElement).value || '')
               })}
+              placeholder="Ingresa el título"
               required
             />
           </IonItem>
+          
           <IonItem>
             <IonLabel position="stacked">Descripción</IonLabel>
             <IonTextarea
               value={nuevaTarea.descripcion}
-              onIonChange={e => setNuevaTarea({
-                ...nuevaTarea,
-                descripcion: e.detail.value || ''
-              })}
+              onIonInput={e => handleDescripcionChange((e.target as HTMLIonTextareaElement).value)}
               rows={4}
-              placeholder="Escribe la descripción de la tarea..."
+              placeholder="Ingresa la descripción"
+              required
             />
           </IonItem>
+
           <IonButton expand="block" type="submit">
             {modoEdicion ? 'Actualizar' : 'Guardar'} Tarea
           </IonButton>
@@ -107,7 +121,7 @@ const Tab1: React.FC = () => {
             <IonItem key={tarea.id}>
               <IonLabel>
                 <h2>{tarea.titulo}</h2>
-                <p>{tarea.descripcion}</p>
+                {tarea.descripcion && <p>{tarea.descripcion}</p>}
               </IonLabel>
               <IonButton 
                 fill="clear"
