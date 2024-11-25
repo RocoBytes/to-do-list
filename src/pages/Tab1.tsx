@@ -14,7 +14,7 @@ import {
   IonModal,
 } from '@ionic/react';
 import { trash, create, camera } from 'ionicons/icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './Tab1.css';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Geolocation } from '@capacitor/geolocation';
@@ -74,44 +74,53 @@ const Tab1: React.FC = () => {
   const guardarTarea = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar que el título no esté vacío
     if (nuevaTarea.titulo.trim() === '') return;
     
-    // Obtener ubicación antes de guardar
-    await obtenerUbicacion();
-    
-    // Validar que tanto el título como la descripción no estén vacíos
-    if (nuevaTarea.titulo.trim() === '' && (!nuevaTarea.descripcion || nuevaTarea.descripcion.trim() === '')) {
-      return;
+    try {
+      // Obtener ubicación
+      await obtenerUbicacion();
+
+      const tareaNueva = {
+        ...nuevaTarea,
+        id: modoEdicion ? nuevaTarea.id : Date.now()
+      };
+
+      // Guardar en el estado usando el spread operator correctamente
+      if (modoEdicion) {
+        setTareas(tareasActuales => 
+          tareasActuales.map(tarea => tarea.id === nuevaTarea.id ? tareaNueva : tarea)
+        );
+      } else {
+        setTareas(tareasActuales => [...tareasActuales, tareaNueva]);
+      }
+
+      // Limpiar el formulario
+      setNuevaTarea({
+        id: 0,
+        titulo: '',
+        descripcion: ''
+      });
+
+      setMostrarModal(false);
+      
+      // Opcional: Guardar en localStorage
+      const tareasActualizadas = modoEdicion ? 
+        tareas.map(tarea => tarea.id === tareaNueva.id ? tareaNueva : tarea) :
+        [...tareas, tareaNueva];
+      localStorage.setItem('tareas', JSON.stringify(tareasActualizadas));
+
+    } catch (error) {
+      console.error('Error al guardar la tarea:', error);
     }
-
-    // Crear una nueva tarea con un ID único
-    const tareaNueva = {
-      ...nuevaTarea,
-      id: modoEdicion ? nuevaTarea.id : Date.now()
-    };
-
-    if (modoEdicion) {
-      // Si estamos en modo de edición, actualizar la tarea existente
-      setTareas(tareas.map(tarea => 
-        tarea.id === nuevaTarea.id ? tareaNueva : tarea
-      ));
-      setModoEdicion(false);
-    } else {
-      // Si no estamos en modo de edición, agregar la nueva tarea a la lista
-      setTareas(prev => [...prev, tareaNueva]);
-    }
-
-    // Resetear el estado de nuevaTarea
-    setNuevaTarea({
-      id: 0,
-      titulo: '',
-      descripcion: ''
-    });
-
-    // Cerrar el modal
-    setMostrarModal(false);
   };
+
+  // Añadir useEffect para cargar tareas guardadas
+  useEffect(() => {
+    const tareasGuardadas = localStorage.getItem('tareas');
+    if (tareasGuardadas) {
+      setTareas(JSON.parse(tareasGuardadas));
+    }
+  }, []);
 
   // Función para editar una tarea existente
   const editarTarea = (tarea: Tarea) => {
