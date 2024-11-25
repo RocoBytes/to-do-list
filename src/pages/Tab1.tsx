@@ -17,12 +17,17 @@ import { trash, create, camera } from 'ionicons/icons';
 import { useState } from 'react';
 import './Tab1.css';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Geolocation } from '@capacitor/geolocation';
 // Definición de la interfaz Tarea o la estructura inicial del Todo
 interface Tarea {
   id: number;
   titulo: string;
   descripcion?: string;
   imagen?: string;
+  ubicacion?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 const Tab1: React.FC = () => {
   // Estado para almacenar la lista de tareas, inicializa con un array vacío (Estado por usar useState)
@@ -49,10 +54,31 @@ const Tab1: React.FC = () => {
     }));
   };
 
+  // Función para obtener la ubicación actual
+  const obtenerUbicacion = async () => {
+    try {
+      const coordinates = await Geolocation.getCurrentPosition();
+      setNuevaTarea(prev => ({
+        ...prev,
+        ubicacion: {
+          latitude: coordinates.coords.latitude,
+          longitude: coordinates.coords.longitude
+        }
+      }));
+    } catch (error) {
+      console.error('Error al obtener ubicación:', error);
+    }
+  };
+
   // Función para guardar una nueva tarea o actualizar una existente
-  const guardarTarea = () => {
+  const guardarTarea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     // Validar que el título no esté vacío
     if (nuevaTarea.titulo.trim() === '') return;
+    
+    // Obtener ubicación antes de guardar
+    await obtenerUbicacion();
     
     // Validar que tanto el título como la descripción no estén vacíos
     if (nuevaTarea.titulo.trim() === '' && (!nuevaTarea.descripcion || nuevaTarea.descripcion.trim() === '')) {
@@ -62,7 +88,7 @@ const Tab1: React.FC = () => {
     // Crear una nueva tarea con un ID único
     const tareaNueva = {
       ...nuevaTarea,
-      id: Date.now()
+      id: modoEdicion ? nuevaTarea.id : Date.now()
     };
 
     if (modoEdicion) {
@@ -182,6 +208,12 @@ const Tab1: React.FC = () => {
                     alt="Imagen de la tarea" 
                     style={{ maxWidth: '200px', marginTop: '10px' }}
                   />
+                )}
+                {tarea.ubicacion && (
+                  <p>
+                    📍 Lat: {tarea.ubicacion.latitude.toFixed(4)}, 
+                    Long: {tarea.ubicacion.longitude.toFixed(4)}
+                  </p>
                 )}
               </IonLabel>
               <IonButton 
