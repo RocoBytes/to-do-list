@@ -12,6 +12,10 @@ import {
   IonLabel,
   IonTextarea,
   IonModal,
+  IonToast,
+  IonButtons,
+  IonRefresher,
+  IonRefresherContent,
 } from '@ionic/react';
 import { trash, create, camera } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
@@ -46,6 +50,9 @@ const Tab1: React.FC = () => {
   // Estado para controlar la visibilidad del modal
   const [mostrarModal, setMostrarModal] = useState(false);
 
+  // Estado para controlar la visibilidad del toast
+  const [mostrarToast, setMostrarToast] = useState(false);
+
   // Función para manejar el cambio en la descripción de la tarea
   const handleDescripcionChange = (value: string | null | undefined) => {
     setNuevaTarea(prev => ({
@@ -76,38 +83,36 @@ const Tab1: React.FC = () => {
     
     if (nuevaTarea.titulo.trim() === '') return;
     
+    const tareaNueva = {
+      ...nuevaTarea,
+      id: modoEdicion ? nuevaTarea.id : Date.now(),
+      imagen: nuevaTarea.imagen
+    };
+
     try {
-      // Obtener ubicación
       await obtenerUbicacion();
 
-      const tareaNueva = {
-        ...nuevaTarea,
-        id: modoEdicion ? nuevaTarea.id : Date.now()
-      };
-
-      // Guardar en el estado usando el spread operator correctamente
-      if (modoEdicion) {
-        setTareas(tareasActuales => 
-          tareasActuales.map(tarea => tarea.id === nuevaTarea.id ? tareaNueva : tarea)
-        );
-      } else {
-        setTareas(tareasActuales => [...tareasActuales, tareaNueva]);
-      }
-
-      // Limpiar el formulario
-      setNuevaTarea({
-        id: 0,
-        titulo: '',
-        descripcion: ''
-      });
-
-      setMostrarModal(false);
-      
-      // Opcional: Guardar en localStorage
+      // Crear el array actualizado de tareas
       const tareasActualizadas = modoEdicion ? 
         tareas.map(tarea => tarea.id === tareaNueva.id ? tareaNueva : tarea) :
         [...tareas, tareaNueva];
+
+      // Actualizar el estado
+      setTareas(tareasActualizadas);
+      
+      // Guardar en localStorage
       localStorage.setItem('tareas', JSON.stringify(tareasActualizadas));
+
+      setNuevaTarea({
+        id: 0,
+        titulo: '',
+        descripcion: '',
+        imagen: undefined,
+        ubicacion: undefined
+      });
+
+      setMostrarModal(false);
+      setMostrarToast(true);
 
     } catch (error) {
       console.error('Error al guardar la tarea:', error);
@@ -153,6 +158,37 @@ const Tab1: React.FC = () => {
     }
   };
 
+  // Función para sincronizar tareas con la API
+  const sincronizarConAPI = async () => {
+    try {
+      const response = await fetch('https://jsonplaceholder.typicode.com/todos');
+      const tareasAPI = await response.json();
+      
+      // Convertir el formato de la API a nuestro formato
+      const tareasFormateadas: Tarea[] = tareasAPI.slice(0, 5).map((item: any) => ({
+        id: item.id,
+        titulo: item.title,
+        descripcion: `Tarea importada - Estado: ${item.completed ? 'Completada' : 'Pendiente'}`,
+        ubicacion: undefined,
+        imagen: undefined
+      }));
+
+      // Combinar tareas existentes con las nuevas
+      const tareasActualizadas = [...tareas, ...tareasFormateadas];
+      setTareas(tareasActualizadas);
+      localStorage.setItem('tareas', JSON.stringify(tareasActualizadas));
+      setMostrarToast(true);
+    } catch (error) {
+      console.error('Error al sincronizar con API:', error);
+    }
+  };
+
+  // Función para el pull-to-refresh
+  const handleRefresh = async (event: CustomEvent) => {
+    await sincronizarConAPI();
+    event.detail.complete();
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -161,6 +197,15 @@ const Tab1: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
+        <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
+          <IonRefresherContent></IonRefresherContent>
+        </IonRefresher>
+
+        {/* Botón para sincronización manual */}
+        <IonButton expand="block" onClick={sincronizarConAPI}>
+          Importar Tareas desde API
+        </IonButton>
+
         <form onSubmit={guardarTarea}>
           <IonItem>
             <IonLabel position="stacked">Título</IonLabel>
@@ -214,12 +259,17 @@ const Tab1: React.FC = () => {
                 {tarea.imagen && (
                   <img 
                     src={tarea.imagen} 
-                    alt="Imagen de la tarea" 
-                    style={{ maxWidth: '200px', marginTop: '10px' }}
+                    alt="Imagen de la tarea"
+                    style={{
+                      width: '100%',
+                      maxWidth: '300px',
+                      marginTop: '10px',
+                      borderRadius: '8px'
+                    }}
                   />
                 )}
                 {tarea.ubicacion && (
-                  <p>
+                  <p style={{ fontSize: '0.9em', color: '#666' }}>
                     📍 Lat: {tarea.ubicacion.latitude.toFixed(4)}, 
                     Long: {tarea.ubicacion.longitude.toFixed(4)}
                   </p>
@@ -246,7 +296,9 @@ const Tab1: React.FC = () => {
           <IonHeader>
             <IonToolbar>
               <IonTitle>{modoEdicion ? 'Editar Tarea' : 'Nueva Tarea'}</IonTitle>
-              <IonButton slot="end" onClick={() => setMostrarModal(false)}>Cerrar</IonButton>
+              <IonButtons slot="end">
+                <IonButton onClick={() => setMostrarModal(false)}>Cerrar</IonButton>
+              </IonButtons>
             </IonToolbar>
           </IonHeader>
           <IonContent>
@@ -289,12 +341,46 @@ const Tab1: React.FC = () => {
                 </IonButton>
               </IonItem>
 
+              {nuevaTarea.ubicacion && (
+                <IonItem>
+                  <IonLabel>
+                    <p>📍 Ubicación actual:</p>
+                    <p>Latitud: {nuevaTarea.ubicacion.latitude.toFixed(4)}</p>
+                    <p>Longitud: {nuevaTarea.ubicacion.longitude.toFixed(4)}</p>
+                  </IonLabel>
+                </IonItem>
+              )}
+
+              {nuevaTarea.imagen && (
+                <IonItem>
+                  <img 
+                    src={nuevaTarea.imagen} 
+                    alt="Vista previa" 
+                    style={{
+                      width: '100%',
+                      maxWidth: '300px',
+                      margin: '10px auto',
+                      borderRadius: '8px'
+                    }}
+                  />
+                </IonItem>
+              )}
+
               <IonButton expand="block" type="submit">
-                {modoEdicion ? 'Actualizar' : 'Guardar'} Tarea
+                {modoEdicion ? 'Actualizar' : 'Guardar'}
               </IonButton>
             </form>
           </IonContent>
         </IonModal>
+
+        <IonToast
+          isOpen={mostrarToast}
+          onDidDismiss={() => setMostrarToast(false)}
+          message="Tarea guardada exitosamente"
+          duration={2000}
+          position="bottom"
+          color="success"
+        />
       </IonContent>
     </IonPage>
   );
