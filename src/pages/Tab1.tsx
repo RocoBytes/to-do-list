@@ -55,7 +55,7 @@ const Tab1: React.FC = () => {
     if (nuevaTarea.titulo.trim() === '') return;
     
     // Validar que tanto el título como la descripción no estén vacíos
-    if (nuevaTarea.titulo.trim() === '' && nuevaTarea.descripcion.trim() === '') {
+    if (nuevaTarea.titulo.trim() === '' && (!nuevaTarea.descripcion || nuevaTarea.descripcion.trim() === '')) {
       return;
     }
 
